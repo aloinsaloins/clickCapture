@@ -16,22 +16,18 @@
   - **クリック/Enterキー操作時:**
     - **リンク (`<a>` タグ) クリックの場合:**
       - **即時キャプチャ:** クリック直後に表示されているタブの可視領域をキャプチャ。
-      - **遅延キャプチャ:** クリックから**一定時間後**（動的コンテンツ生成を考慮）に表示されているタブの可視領域をキャプチャ。
+      - **遅延キャプチャ:** クリックから**一定時間後**に表示されているタブの可視領域をキャプチャ。
     - **リンク以外のクリック/Enterキー操作の場合:**
       - **遅延キャプチャのみ:** 操作から**一定時間後**に表示されているタブの可視領域をキャプチャ。
   - **ページ遷移完了時:**
-    - **遅延キャプチャのみ:** ページ読み込み完了から**一定時間後**に表示されているタブの可視領域をキャプチャ（`autoCapture` 設定が有効かつサイトが許可リストにある場合）。
+    - **遅延キャプチャのみ:** ページ読み込み完了から**一定時間後**に表示されているタブの可視領域をキャプチャ（`autoCapture` 設定が有効な場合）。
   - キャプチャしたイメージは**PNG形式**で保存。
 
 ### 2.2 拡張機能の制御
 - **グローバルな有効/無効切り替え:**
-  - ポップアップUIで拡張機能全体のON/OFFを切り替え可能。
-- **サイトごとの許可リスト:**
-  - ポップアップUIで、現在表示しているサイトを許可リストに追加・削除可能。
-  - 許可されたサイトのリストを表示。
-  - 拡張機能は、**グローバル設定がON**であり、**かつ**表示中のサイトが**許可リストに含まれている**場合にのみ動作。
+  - ポップアップUIで拡張機能全体のON/OFF (`isGloballyEnabled`) を切り替え可能。
 - **設定の永続化:**
-  - グローバル設定 (`isGloballyEnabled`)、許可リスト (`allowedSites`)、自動キャプチャ設定 (`autoCapture`)、カウンター (`counter_*`) はChrome Storage APIを使用して保存。
+  - グローバル設定 (`isGloballyEnabled`)、自動キャプチャ設定 (`autoCapture`)、カウンター (`counter_*`) はChrome Storage APIを使用して保存。
 
 ## 3. 技術仕様
 
@@ -54,7 +50,7 @@
 ```json
 {
   "permissions": [
-    "storage",          // 設定（許可リスト含む）の保存
+    "storage",          // 設定の保存
     "downloads",        // スクリーンショットの保存
     "scripting",        // コンテンツスクリプトの実行
     "tabs",             // 現在のタブ情報の取得、スクリーンショット取得
@@ -77,25 +73,22 @@
 - アイコンを設定。
 
 #### popup.html / popup.js
-- 拡張機能全体の有効/無効を切り替えるトグルスイッチ (`isGloballyEnabled`)。
-- ページ遷移時の自動キャプチャを有効/無効にするトグルスイッチ (`autoCapture`) (任意追加、現在の実装では常に有効扱いだが設定は読み込む)。
-- 現在表示しているサイトのホスト名を表示。
-- 現在のサイトを許可リストに追加/削除するボタン (`allowedSites`)。
-- 許可されているサイトのリストを表示し、リストから直接削除する機能。
-- `chrome.storage.local` を使用して、設定を読み込み・保存。
+- 拡張機能全体の有効/無効を切り替えるトグルスイッチ (`isGloballyEnabled`) のみを表示。
+- `chrome.storage.local` を使用して、`isGloballyEnabled` を読み込み・保存。
 
 #### content.js
 - `click` および `keydown` (Enterキー) イベントリスナーを設定。
 - クリックイベントが発生した際、要素自身または祖先要素がインタラクティブかを判定。
 - インタラクティブな要素でのインタラクション、または特定の要素でのEnterキー押下を検知。
-- **設定確認:** `background.js` に `checkSettings` メッセージを送信し、現在のサイトが許可されているか確認。
-- **スクリーンショット要求:** サイトが許可されている場合、`background.js` に `takeScreenshot` メッセージを送信。
+- **設定確認:** `background.js` に `checkSettings` メッセージを送信し、グローバル設定が有効か確認。
+- **スクリーンショット要求:** グローバル設定が有効な場合、`background.js` に `takeScreenshot` メッセージを送信。
   - リンク (`<a>` タグ) クリックの場合は `{ captureImmediate: true }` オプションを付けて送信。
-  - それ以外の場合はオプションなし (または `{ captureImmediate: false }`) で送信。
+  - それ以外の場合はオプションなしで送信。
 
 #### background.js
-- **設定確認応答:** `checkSettings` メッセージを受信し、`chrome.storage.local` から `isGloballyEnabled` と `allowedSites` を読み取り、許可状態 (`{ isAllowed: boolean }`) を `content.js` に応答。
+- **設定確認応答:** `checkSettings` メッセージを受信し、`chrome.storage.local` から `isGloballyEnabled` を読み取り、状態 (`{ isGloballyEnabled: boolean }`) を `content.js` に応答。
 - **スクリーンショット処理 (`handleScreenshotRequest`):** `takeScreenshot` メッセージまたは `webNavigation` イベントから呼び出される。
+  - **グローバル設定チェック:** 呼び出し元 (特に `takeScreenshot` メッセージ) でグローバル設定がONか再確認。
   - 引数としてタブIDと `options` (例: `{ captureImmediate: boolean }`) を受け取る。
   - `options.captureImmediate` が `true` の場合、**即時スクリーンショット**を撮影・保存 (`_immediate.png`)。
   - `SCREENSHOT_DELAY_MS` だけ待機。
@@ -104,8 +97,8 @@
   - `chrome.tabs.captureVisibleTab` と `chrome.downloads.download` を使用。
 - **ページ遷移後キャプチャ:** `chrome.webNavigation.onCompleted` リスナーを設定。
   - メインフレームのナビゲーション完了を検知。
-  - `chrome.storage.local` から `autoCapture` 設定と `allowedSites` を読み込む。
-  - `autoCapture` が有効かつ遷移先URLが許可リストに含まれている場合、`handleScreenshotRequest` を呼び出し**遅延スクリーンショット**のみを撮影 (`{ captureImmediate: false }`)。
+  - `chrome.storage.local` から `isGloballyEnabled` と `autoCapture` 設定を読み込む。
+  - `isGloballyEnabled` と `autoCapture` が有効な場合、`handleScreenshotRequest` を呼び出し**遅延スクリーンショット**のみを撮影 (`{ captureImmediate: false }`)。
 - **ファイル名・カウンター管理:**
   - `handleScreenshotRequest` 内でサイトごとのカウンターを取得・更新 (`counter_{websiteName}` を使用)。
   - 即時キャプチャのファイル名: `{websiteName}_{number}_immediate.png`
@@ -116,12 +109,6 @@
 ### 4.1 ポップアップUI
 - **拡張機能全体セクション:**
   - ON/OFFトグルスイッチと現在の状態（有効/無効）表示。
-- **現在のサイトセクション:**
-  - 表示中のサイトのホスト名を表示。
-  - 「許可リストに追加」または「リストから削除」ボタン（状態に応じて切り替え）。
-- **許可されたサイトリストセクション:**
-  - 許可されているサイトのホスト名リスト。
-  - 各サイト名の横に「削除」ボタン。
 - (オプション) **自動キャプチャセクション:**
   - ページ遷移時の自動キャプチャ ON/OFF トグルスイッチ。
 
@@ -131,7 +118,6 @@
 - **保存場所:** Chrome Storage API (`chrome.storage.local`)
 - **保存する項目:**
   - `isGloballyEnabled` (Boolean): 拡張機能全体の有効/無効状態。
-  - `allowedSites` (Array<String>): 許可されたサイトのホスト名リスト。
   - `autoCapture` (Boolean): ページ遷移時の自動キャプチャ有効/無効状態 (デフォルト: true)。
   - `counter_{websiteName}` (Number): 各サイトごとのスクリーンショット連番カウンター。
 
@@ -158,7 +144,7 @@
 - エラーは主にデベロッパーコンソールに出力。
 
 ## 7. セキュリティ考慮事項
-- ユーザーが明示的に許可したサイトでのみ動作。
+- 拡張機能が有効な場合、すべてのサイトで動作。
 - 必要最小限の権限 (`storage`, `downloads`, `scripting`, `tabs`, `webNavigation`, `<all_urls>`) を要求。
 - `<all_urls>` 権限は広範なため、ユーザーへの説明が必要。
 

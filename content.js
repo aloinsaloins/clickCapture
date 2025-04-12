@@ -1,23 +1,27 @@
 console.log("Content script loaded for:", window.location.href);
 
 // スクリーンショット要求を送信する関数
-// options オブジェクトを受け取るように変更 (例: { captureImmediate: true })
+// options オブジェクトを受け取る
 async function requestScreenshot(options = {}) {
   try {
-    console.log('Requesting settings check from background...');
+    // checkSettings を呼び出し、グローバル設定のみ確認
+    console.log('Requesting global settings check from background...');
     const settingsResponse = await chrome.runtime.sendMessage({ type: 'checkSettings' });
-    console.log('Received settings response:', settingsResponse);
+    console.log('Received global settings response:', settingsResponse);
 
-    if (settingsResponse && settingsResponse.isAllowed) {
-      console.log(`Site is allowed. Sending takeScreenshot request (options: ${JSON.stringify(options)})...`);
-      // background.js に options を渡す
-      chrome.runtime.sendMessage({ type: 'takeScreenshot', options: options });
-      console.log('takeScreenshot request sent.');
+    // グローバル設定が有効な場合のみスクリーンショットを要求
+    if (settingsResponse && settingsResponse.isGloballyEnabled) {
+      console.log(`Extension is globally enabled. Sending takeScreenshot request (options: ${JSON.stringify(options)})...`);
+      chrome.runtime.sendMessage({ type: 'takeScreenshot', options: options }, (response) => {
+         if (chrome.runtime.lastError) {
+            console.error('Error sending takeScreenshot message:', chrome.runtime.lastError.message);
+         }
+      });
     } else {
-      console.log(`Screenshot request denied or check failed. Response: ${JSON.stringify(settingsResponse)}`);
+      console.log(`Extension is globally disabled. Screenshot request skipped.`);
     }
   } catch (error) {
-    console.error('Error requesting screenshot:', error);
+    console.error('Error preparing screenshot request:', error);
     if (error instanceof Error) {
         console.error('Stack trace:', error.stack);
     }

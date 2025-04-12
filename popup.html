@@ -1,169 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      width: 250px; /* 少し幅を広げる */
-      padding: 15px;
-      font-family: sans-serif;
-      font-size: 14px;
-    }
-    h2 {
-      margin-top: 0;
-      margin-bottom: 10px;
-      text-align: center;
-    }
-    .section {
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-    }
-    .section-title {
-        font-weight: bold;
-        margin-bottom: 8px;
-    }
-    .toggle-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 5px;
-    }
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 24px;
-    }
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: .4s;
-      border-radius: 24px;
-    }
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
-    }
-    input:checked + .slider {
-      background-color: #2196F3;
-    }
-    input:checked + .slider:before {
-      transform: translateX(26px);
-    }
-    
-    .site-control button {
-        padding: 6px 12px;
-        cursor: pointer;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        background-color: #f8f8f8;
-        margin-top: 5px;
-        width: 100%;
-    }
-    .site-control button:hover {
-        background-color: #eee;
-    }
-    .site-control .remove-button {
-        background-color: #fdd;
-        border-color: #fbb;
-    }
-     .site-control .remove-button:hover {
-        background-color: #fcc;
-    }
-    .current-site {
-        font-weight: bold;
-        word-break: break-all; /* 長いホスト名に対応 */
-        margin-bottom: 5px;
-    }
-    #allowed-sites-list {
-        max-height: 150px;
-        overflow-y: auto;
-        border: 1px solid #eee;
-        padding: 5px;
-        margin-top: 5px;
-        background-color: #fafafa;
-    }
-     #allowed-sites-list div {
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         padding: 3px 0;
-         border-bottom: 1px dashed #eee;
-     }
-     #allowed-sites-list div:last-child {
-         border-bottom: none;
-     }
-     #allowed-sites-list span {
-         flex-grow: 1;
-         margin-right: 10px;
-         word-break: break-all;
-     }
-     #allowed-sites-list button {
-         padding: 2px 6px;
-         font-size: 12px;
-         cursor: pointer;
-         background-color: #fdd;
-         border: 1px solid #fbb;
-         border-radius: 3px;
-         flex-shrink: 0;
-     }
-      #allowed-sites-list button:hover {
-        background-color: #fcc;
-    }
-    .status {
-        text-align: center;
-        font-style: italic;
-        color: #555;
-        margin-top: 5px;
-    }
-  </style>
+    <title>Click Capture 設定</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            width: 300px;
+            font-family: sans-serif;
+            padding: 10px;
+        }
+        h2 {
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        .section {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+        }
+        label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .toggle {
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
-  <h2>Click Capture</h2>
+    <h2>Click Capture 設定</h2>
 
-  <div class="section">
-      <div class="section-title">拡張機能全体</div>
-      <div class="toggle-container">
-        <span>有効 / 無効</span>
-        <label class="switch" aria-label="拡張機能全体の有効/無効を切り替え">
-          <input type="checkbox" id="globalToggleSwitch">
-          <span class="slider"></span>
+    <div class="section">
+        <h3>拡張機能の動作</h3>
+        <label>
+            <span>ステータス: <span id="globalStatus">無効</span></span>
+            <input type="checkbox" id="globalToggle" class="toggle">
         </label>
-      </div>
-      <div class="status" id="globalStatus">無効</div>
-  </div>
+    </div>
 
-  <div class="section site-control">
-      <div class="section-title">現在のサイト</div>
-      <div id="currentSite" class="current-site">読み込み中...</div>
-      <button id="addCurrentSite">このサイトを許可リストに追加</button>
-      <button id="removeCurrentSite" class="remove-button" style="display: none;">このサイトをリストから削除</button>
-  </div>
+    <!-- Removed sections for current site and allowed sites list -->
 
-  <div class="section">
-      <div class="section-title">許可されたサイトリスト</div>
-      <div id="allowed-sites-list">リストは空です</div>
-  </div>
-
-  <script src="popup.js"></script>
+    <script src="popup.js"></script>
 </body>
 </html> 

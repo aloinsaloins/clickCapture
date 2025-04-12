@@ -1,5 +1,5 @@
 // Delay time (milliseconds) before capture
-const SCREENSHOT_DELAY_MS = 500; // Adjusted delay, might need tuning
+const SCREENSHOT_DELAY_MS = 500;
 
 // Main function to handle the screenshot request
 // options を引数に追加
@@ -9,7 +9,6 @@ async function handleScreenshotRequest(tabId, options = {}) {
     let number;
     let immediateSuccess = false;
     let delayedSuccess = false;
-    // オプションから即時キャプチャが必要か取得 (デフォルトは false)
     const captureImmediate = options.captureImmediate === true;
 
     try {
@@ -25,14 +24,7 @@ async function handleScreenshotRequest(tabId, options = {}) {
         }
         console.log('Processing screenshot request for tab:', tab.url);
 
-        // 2. Check Whitelist (Added for robustness, might be redundant if checkSettings is reliable)
-        // Assuming isUrlAllowed function exists and works correctly
-        if (typeof isUrlAllowed === 'function' && !await isUrlAllowed(tab.url)) {
-            console.log('URL not in whitelist (checked in handleScreenshotRequest), skipping screenshot:', tab.url);
-            return false;
-        }
-
-        // 3. Get URL Details & Number
+        // 2. Get URL Details & Number (Whitelist check removed)
         let url = new URL(tab.url);
         websiteName = url.hostname.replace(/^www\./, '').split('.')[0] || 'local';
         const storageKey = `counter_${websiteName}`;
@@ -69,8 +61,7 @@ async function handleScreenshotRequest(tabId, options = {}) {
 
         // --- Capture Delayed Screenshot ---
         const delayedFilename = `${websiteName}_${number}_delayed.png`;
-        try {
-            // Re-query tab to ensure it's still valid and on the same host
+         try {
             let currentTabAfterDelay;
             const currentTabId = tabId || (tab ? tab.id : null);
             if (!currentTabId) {
@@ -109,18 +100,7 @@ async function handleScreenshotRequest(tabId, options = {}) {
     }
 }
 
-// Helper function to check if a URL is in the whitelist
-// (Keep this function as it might be used by webNavigation listener)
-async function isUrlAllowed(url) {
-    try {
-        const { allowedSites = [] } = await chrome.storage.local.get('allowedSites');
-        const hostname = new URL(url).hostname;
-        return allowedSites.some(site => hostname.includes(site));
-    } catch (error) {
-        console.error('Error checking URL allowlist:', error);
-        return false;
-    }
-}
+// Helper function isUrlAllowed REMOVED
 
 // Message Listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -130,44 +110,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'checkSettings') {
         (async () => {
              try {
-                if (!sender.tab || !sender.tab.url || !sender.tab.url.startsWith('http')) {
-                    console.warn(`Cannot check settings for non-http sender: ${senderUrl}`);
-                    sendResponse({ isAllowed: false }); return;
-                }
-                const settings = await chrome.storage.local.get(['isGloballyEnabled', 'allowedSites']);
-                const isGloballyEnabled = settings.isGloballyEnabled ?? false;
-                const allowedSites = settings.allowedSites || [];
-                const currentHostname = new URL(sender.tab.url).hostname;
-                const isAllowed = isGloballyEnabled && allowedSites.includes(currentHostname);
-                console.log(`Checking settings for ${currentHostname}: Global=${isGloballyEnabled}, Allowed=${allowedSites.includes(currentHostname)}, Result=${isAllowed}`);
-                sendResponse({ isAllowed: isAllowed });
+                // Only check isGloballyEnabled
+                const { isGloballyEnabled = false } = await chrome.storage.local.get('isGloballyEnabled');
+                console.log(`Checking global setting: Enabled=${isGloballyEnabled}`);
+                // Respond with only the global status
+                sendResponse({ isGloballyEnabled: isGloballyEnabled });
             } catch (error) {
                 console.error('Error during checkSettings processing:', error);
-                sendResponse({ isAllowed: false });
+                sendResponse({ isGloballyEnabled: false }); // Send false on error
             }
         })();
-        return true;
+        return true; // Indicate asynchronous response is intended
     }
 
     if (message.type === 'takeScreenshot') {
-        console.log(`Received takeScreenshot request with options:`, message.options);
-        const tabId = sender.tab ? sender.tab.id : null;
-        // message.options を handleScreenshotRequest に渡す
-        const options = message.options || {}; // Ensure options is an object
-        handleScreenshotRequest(tabId, options)
-            .then(result => {
-                 try {
-                    console.log(`[takeScreenshot] Sending response: {success: ${result}}`);
-                    sendResponse({ success: result });
-                 } catch (e) { console.warn('Could not send response for takeScreenshot, channel likely closed:', e.message); }
-            })
-            .catch(error => {
-                 try {
-                     console.error('Error executing handleScreenshotRequest:', error);
-                     sendResponse({ success: false, error: error.message });
-                 } catch (e) { console.warn('Could not send error response for takeScreenshot, channel likely closed:', e.message); }
-            });
-        return true;
+        // Before processing, check if globally enabled
+        (async () => {
+             const { isGloballyEnabled = false } = await chrome.storage.local.get('isGloballyEnabled');
+             if (!isGloballyEnabled) {
+                 console.log('Extension globally disabled, skipping takeScreenshot request.');
+                 sendResponse({ success: false, reason: 'Globally disabled' });
+                 return;
+             }
+
+             // If enabled, proceed with handling the screenshot request
+             console.log(`Received takeScreenshot request with options:`, message.options);
+             const tabId = sender.tab ? sender.tab.id : null;
+             const options = message.options || {};
+             try {
+                 const result = await handleScreenshotRequest(tabId, options);
+                 console.log(`[takeScreenshot] Sending response: {success: ${result}}`);
+                 sendResponse({ success: result });
+             } catch (error) {
+                 console.error('Error executing handleScreenshotRequest:', error);
+                 sendResponse({ success: false, error: error.message });
+             }
+        })();
+        return true; // Indicate asynchronous response is intended
     }
 });
 
@@ -176,15 +155,14 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
     if (details.frameId === 0) { // Only main frame
         console.log('Page navigation completed:', details.url);
         try {
-            const { autoCapture = true, allowedSites = [] } = await chrome.storage.local.get(['autoCapture', 'allowedSites']);
-            const hostname = new URL(details.url).hostname;
+            // Check only global and autoCapture settings
+            const { isGloballyEnabled = false, autoCapture = true } = await chrome.storage.local.get(['isGloballyEnabled', 'autoCapture']);
 
-            if (autoCapture && allowedSites.some(site => hostname.includes(site))) {
-                 console.log('Auto-capturing screenshot after navigation...');
-                 // Navigation should only trigger a delayed screenshot
+            if (isGloballyEnabled && autoCapture) {
+                 console.log('Auto-capturing screenshot after navigation (Globally enabled & Auto-capture enabled)...');
                  await handleScreenshotRequest(details.tabId, { captureImmediate: false });
              } else {
-                 console.log('Auto-capture disabled or site not allowed for navigation:', details.url);
+                 console.log(`Auto-capture skipped. Globally enabled: ${isGloballyEnabled}, Auto-capture: ${autoCapture}`);
              }
         } catch (error) {
             console.error('Error in webNavigation.onCompleted listener:', error);
