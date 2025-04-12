@@ -3,31 +3,28 @@ console.log("Content script loaded for:", window.location.href);
 // スクリーンショット要求を送信する関数
 async function requestScreenshot() {
   try {
-    // グローバル設定と許可リストを読み込み
-    const settings = await chrome.storage.local.get(['isGloballyEnabled', 'allowedSites']);
-    const isGloballyEnabled = settings.isGloballyEnabled || false;
-    const allowedSites = settings.allowedSites || [];
-    const currentHostname = window.location.hostname;
+    console.log('Requesting settings check from background...');
+    // バックグラウンドスクリプトに設定の確認を要求
+    const response = await chrome.runtime.sendMessage({ type: 'checkSettings' });
+    console.log('Received settings response:', response);
 
-    // グローバルで有効 かつ 現在のサイトが許可リストに含まれているか確認
-    if (isGloballyEnabled && allowedSites.includes(currentHostname)) {
-      console.log('Sending screenshot request (Globally enabled and site allowed)...');
-      chrome.runtime.sendMessage({ type: 'takeScreenshot' }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('Error sending message:', chrome.runtime.lastError);
-        } else {
-          // console.log('Screenshot request sent successfully'); // 成功ログは冗長なのでコメントアウト
-        }
-      });
+    // Check if the response indicates the site is allowed
+    if (response && response.isAllowed) {
+      console.log('Site is allowed. Sending takeScreenshot request...');
+      // Send message to background to take the screenshot(s)
+      // We don't need to wait for the screenshot to finish here
+      chrome.runtime.sendMessage({ type: 'takeScreenshot' });
+      console.log('takeScreenshot request sent.');
     } else {
-      if (!isGloballyEnabled) {
-          console.log('Extension is globally disabled, not sending request.');
-      } else {
-          console.log('Current site is not in the allowed list, not sending request.');
-      }
+      // Log why it wasn't allowed based on the response
+      console.log(`Screenshot request denied or check failed. Response: ${JSON.stringify(response)}`);
     }
   } catch (error) {
+    // Log the full error object for better debugging
     console.error('Error requesting screenshot:', error);
+    if (error instanceof Error) {
+        console.error('Stack trace:', error.stack);
+    }
   }
 }
 
