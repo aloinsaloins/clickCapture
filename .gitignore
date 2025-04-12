@@ -1,0 +1,26 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Log files
+*.log
+
+# Packaged extension files
+*.crx
+*.zip
+
+# Node.js dependencies (if used in the future)
+node_modules/
+
+# Build artifacts (if used in the future)
+dist/
+build/ 
