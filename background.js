@@ -72,74 +72,70 @@ async function handleScreenshotRequest(tabId) {
     }
 }
 
-// Message Listener with improved async handling
+// Message Listener with improved async handling and logging
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log(`Message received: ${message.type} from ${sender.tab ? sender.tab.url : 'unknown sender'}`);
+    const senderUrl = sender.tab ? sender.tab.url : 'unknown sender';
+    console.log(`Message received: ${message.type} from ${senderUrl}`);
 
     if (message.type === 'checkSettings') {
-        // Use an async IIFE for cleaner async/await within the listener
         (async () => {
             try {
-                // Ensure sender tab and URL exist and are http/https
                 if (!sender.tab || !sender.tab.url || !sender.tab.url.startsWith('http')) {
-                    console.warn(`Cannot check settings for non-http sender: ${sender.tab ? sender.tab.url : 'unknown'}`);
+                    console.warn(`Cannot check settings for non-http sender: ${senderUrl}`);
+                    console.log('[checkSettings] Sending response: {isAllowed: false} (invalid sender)');
                     sendResponse({ isAllowed: false });
                     return;
                 }
 
                 const settings = await chrome.storage.local.get(['isGloballyEnabled', 'allowedSites']);
-                const isGloballyEnabled = settings.isGloballyEnabled ?? false; // Default to false if undefined
+                const isGloballyEnabled = settings.isGloballyEnabled ?? false;
                 const allowedSites = settings.allowedSites || [];
                 const currentHostname = new URL(sender.tab.url).hostname;
-
                 const isAllowed = isGloballyEnabled && allowedSites.includes(currentHostname);
+
                 console.log(`Checking settings for ${currentHostname}: Global=${isGloballyEnabled}, Allowed=${allowedSites.join(',')}, Result=${isAllowed}`);
+                console.log(`[checkSettings] Sending response: {isAllowed: ${isAllowed}}`);
                 sendResponse({ isAllowed: isAllowed });
 
             } catch (error) {
                 console.error('Error during checkSettings processing:', error);
-                // Attempt to send an error response, but catch potential errors if channel is already closed
                 try {
+                    console.log('[checkSettings] Sending error response: {isAllowed: false}');
                     sendResponse({ isAllowed: false });
                 } catch (responseError) {
                     console.warn('Could not send error response for checkSettings, channel likely closed:', responseError.message);
                 }
             }
-        })(); // Immediately invoke the async function
-
-        return true; // Indicate asynchronous response is intended
+        })();
+        return true;
     }
 
     if (message.type === 'takeScreenshot') {
         console.log(`Received takeScreenshot request.`);
-        // Ensure tab ID is passed if available
         const tabId = sender.tab ? sender.tab.id : null;
         handleScreenshotRequest(tabId)
             .then(result => {
                 console.log(`handleScreenshotRequest finished with result: ${result}`);
-                 // Check if channel is still open before sending response
                 try {
+                    console.log(`[takeScreenshot] Sending response: {success: ${result}}`);
                     sendResponse({ success: result });
                     console.log('Sent response for takeScreenshot.');
                 } catch (e) {
-                    // Log if sending fails - channel might be closed if the content script navigated away
                     console.warn('Could not send response for takeScreenshot, channel likely closed:', e.message);
                 }
             })
             .catch(error => {
                 console.error('Error executing handleScreenshotRequest:', error);
-                 // Check if channel is still open before sending error response
                 try {
+                    console.log(`[takeScreenshot] Sending error response: {success: false, error: ...}`);
                     sendResponse({ success: false, error: error.message });
                     console.log('Sent error response for takeScreenshot.');
                 } catch (e) {
                     console.warn('Could not send error response for takeScreenshot, channel likely closed:', e.message);
                 }
             });
-        return true; // Indicate asynchronous response is intended
+        return true;
     }
-    
-    // Handle other message types if needed, otherwise return false or undefined implicitly
 });
 
 // ... Navigation completion listener ... 
