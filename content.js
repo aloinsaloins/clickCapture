@@ -21,57 +21,90 @@ async function requestScreenshot() {
   }
 }
 
+// 要素またはその祖先がインタラクティブかチェックする関数
+function isElementOrAncestorInteractive(element, levels = 3) {
+  console.log('[InteractiveCheck] Starting check for element:', element);
+  let current = element;
+  for (let i = 0; i < levels && current && current !== document.body && current !== document.documentElement; i++) {
+    const tagName = current.tagName.toUpperCase();
+    const role = current.getAttribute('role');
+    const onclickAttr = current.hasAttribute('onclick');
+    const isEditable = current.isContentEditable;
+    const classList = current.classList;
+    let cursorStyle = 'unknown';
+    try {
+      cursorStyle = window.getComputedStyle(current).cursor;
+    } catch (e) {
+      console.warn('[InteractiveCheck] Could not get computed style for element:', current, e);
+    }
+
+    console.log(`[InteractiveCheck] Checking level ${i}, Element: <${tagName}>`, { role, onclick: onclickAttr, isEditable, cursor: cursorStyle, classes: classList }, current);
+
+    // 標準的なインタラクティブ要素のタグ名
+    const interactiveTags = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL'];
+    // 一般的なインタラクティブなrole属性
+    const interactiveRoles = ['button', 'link', 'menuitem', 'checkbox', 'radio', 'tab', 'option'];
+
+    // チェック1: タグ名
+    if (interactiveTags.includes(tagName)) {
+      console.log('[InteractiveCheck] Result: TRUE (Interactive Tag)');
+      return { interactive: true, reason: `Interactive Tag (${tagName}) found in hierarchy` };
+    }
+    // チェック2: Role属性
+    if (role && interactiveRoles.includes(role)) {
+      console.log('[InteractiveCheck] Result: TRUE (Interactive Role)');
+      return { interactive: true, reason: `Interactive Role (${role}) found in hierarchy` };
+    }
+    // チェック3: onclick属性
+    if (onclickAttr) {
+      console.log('[InteractiveCheck] Result: TRUE (onclick attribute)');
+      return { interactive: true, reason: 'onclick attribute found in hierarchy' };
+    }
+    // チェック4: contentEditable
+    if (isEditable) {
+      console.log('[InteractiveCheck] Result: TRUE (contentEditable)');
+      return { interactive: true, reason: 'contentEditable element found in hierarchy' };
+    }
+    // チェック5: Cursorスタイル
+    if (cursorStyle === 'pointer') {
+      console.log('[InteractiveCheck] Result: TRUE (Cursor Style: pointer)');
+      return { interactive: true, reason: 'Cursor Style (pointer) found in hierarchy' };
+    }
+    // チェック6: cursor-pointer クラス (getComputedStyleが効かない場合のフォールバック)
+    if (classList && classList.contains('cursor-pointer')) {
+        console.log('[InteractiveCheck] Result: TRUE (Class: cursor-pointer)');
+        return { interactive: true, reason: 'cursor-pointer class found in hierarchy' };
+    }
+
+    // SVGやPATHのような要素はそれ自体はインタラクティブでないことが多いので、親をチェックし続ける
+    if (['SVG', 'PATH', 'G'].includes(tagName)){
+       console.log('[InteractiveCheck] Element is SVG/PATH/G, continuing to parent.');
+       // Keep checking parents
+    } else if (!['DIV', 'SPAN', 'I', 'IMG'].includes(tagName)) {
+        console.log(`[InteractiveCheck] Element <${tagName}> is not a common container, stopping ancestor check.`);
+        // 特定のコンテナ要素以外なら、これ以上親を遡らない方が安全な場合も
+        // break; // 必要に応じてこのコメントを解除
+    }
+
+    current = current.parentElement;
+    if (!current) {
+        console.log('[InteractiveCheck] Reached end of parents.');
+    }
+  }
+  console.log('[InteractiveCheck] Result: FALSE (No interactive criteria met in hierarchy)');
+  return { interactive: false, reason: 'No interactive criteria met in hierarchy' };
+}
+
 // クリックイベントのリスナー
 document.addEventListener('click', async (event) => {
   const target = event.target;
-  const tagName = target.tagName.toUpperCase();
+  const { interactive, reason } = isElementOrAncestorInteractive(target);
 
-  // 標準的なインタラクティブ要素のタグ名
-  const interactiveTags = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL'];
-  // インタラクティブ要素内でよく使われるタグ名
-  const potentiallyClickableTags = ['IMG', 'SVG', 'I', 'SPAN'];
-  // 一般的なインタラクティブなrole属性
-  const interactiveRoles = ['button', 'link', 'menuitem', 'checkbox', 'radio', 'tab', 'option'];
-
-  let isConsideredInteractive = false;
-  let reason = 'No interactive criteria met';
-
-  // チェック1: ターゲットが標準的なインタラクティブ要素か？
-  if (interactiveTags.includes(tagName)) {
-    isConsideredInteractive = true;
-    reason = `Interactive Tag: ${tagName}`;
-  }
-  // チェック2: ターゲットがインタラクティブなroleを持っているか？
-  else if (target.hasAttribute('role') && interactiveRoles.includes(target.getAttribute('role'))) {
-    isConsideredInteractive = true;
-    reason = `Interactive Role: ${target.getAttribute('role')}`;
-  }
-  // チェック3: ターゲットのcomputedスタイルでcursorがpointerか？
-  else if (window.getComputedStyle(target).cursor === 'pointer') {
-      isConsideredInteractive = true;
-      reason = 'Cursor Style: pointer';
-  }
-  // チェック4: ターゲットがインタラクティブ要素内のクリック可能な要素か（親要素のcursorもチェック）？
-  else if (potentiallyClickableTags.includes(tagName) && target.parentElement && window.getComputedStyle(target.parentElement).cursor === 'pointer') {
-      isConsideredInteractive = true;
-      reason = `Potentially Clickable Tag (${tagName}) inside Parent with Pointer Cursor`;
-  }
-  // チェック5: ターゲットまたは親要素にonclick属性があるか？
-  else if (target.hasAttribute('onclick') || (target.parentElement && target.parentElement.hasAttribute('onclick'))) {
-      isConsideredInteractive = true;
-      reason = 'onclick attribute found on target or parent';
-  }
-  // チェック6: ターゲットが編集可能か？
-  else if (target.isContentEditable) {
-      isConsideredInteractive = true;
-      reason = 'contentEditable element';
-  }
-
-  if (isConsideredInteractive) {
-    console.log(`Click event detected on interactive element (Reason: ${reason}):`, target);
+  if (interactive) {
+    console.log(`Click event detected on interactive element or ancestor (Reason: ${reason}):`, target);
     await requestScreenshot();
   } else {
-    console.log('Click event detected on non-interactive element, ignoring:', target);
+    console.log('Click event detected on non-interactive element/ancestor, ignoring:', target);
   }
 });
 
