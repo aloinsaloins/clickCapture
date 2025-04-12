@@ -1,26 +1,22 @@
 console.log("Content script loaded for:", window.location.href);
 
 // スクリーンショット要求を送信する関数
-async function requestScreenshot() {
+// options オブジェクトを受け取るように変更 (例: { captureImmediate: true })
+async function requestScreenshot(options = {}) {
   try {
     console.log('Requesting settings check from background...');
-    // バックグラウンドスクリプトに設定の確認を要求
-    const response = await chrome.runtime.sendMessage({ type: 'checkSettings' });
-    console.log('Received settings response:', response);
+    const settingsResponse = await chrome.runtime.sendMessage({ type: 'checkSettings' });
+    console.log('Received settings response:', settingsResponse);
 
-    // Check if the response indicates the site is allowed
-    if (response && response.isAllowed) {
-      console.log('Site is allowed. Sending takeScreenshot request...');
-      // Send message to background to take the screenshot(s)
-      // We don't need to wait for the screenshot to finish here
-      chrome.runtime.sendMessage({ type: 'takeScreenshot' });
+    if (settingsResponse && settingsResponse.isAllowed) {
+      console.log(`Site is allowed. Sending takeScreenshot request (options: ${JSON.stringify(options)})...`);
+      // background.js に options を渡す
+      chrome.runtime.sendMessage({ type: 'takeScreenshot', options: options });
       console.log('takeScreenshot request sent.');
     } else {
-      // Log why it wasn't allowed based on the response
-      console.log(`Screenshot request denied or check failed. Response: ${JSON.stringify(response)}`);
+      console.log(`Screenshot request denied or check failed. Response: ${JSON.stringify(settingsResponse)}`);
     }
   } catch (error) {
-    // Log the full error object for better debugging
     console.error('Error requesting screenshot:', error);
     if (error instanceof Error) {
         console.error('Stack trace:', error.stack);
@@ -109,11 +105,18 @@ document.addEventListener('click', async (event) => {
 
   if (interactive) {
     console.log(`Click event detected on interactive element or ancestor (Reason: ${reason}):`, target);
-    await requestScreenshot();
+
+    // クリックされた要素またはその祖先に <a> タグがあるか確認
+    const isLinkClick = target.closest('a') !== null;
+    console.log(`Is link click: ${isLinkClick}`);
+
+    // isLinkClick が true の場合のみ captureImmediate: true を渡す
+    await requestScreenshot({ captureImmediate: isLinkClick });
+
   } else {
-    console.log('Click event detected on non-interactive element/ancestor, ignoring:', target);
+    // console.log('Click event detected on non-interactive element/ancestor, ignoring:', target);
   }
-});
+}, true); // Use capture phase
 
 // Enterキーイベントのリスナー
 document.addEventListener('keydown', async (event) => {
@@ -129,9 +132,10 @@ document.addEventListener('keydown', async (event) => {
 
     if (isEnterTarget) {
       console.log('Enter key detected on interactive element:', target);
+      // Enter キーの場合は即時キャプチャは不要とする (オプションは渡さない)
       await requestScreenshot();
     } else {
-      console.log('Enter key detected, but not on a common interactive element, ignoring:', target);
+      // console.log('Enter key detected, but not on a common interactive element, ignoring:', target);
     }
   }
 }); 
