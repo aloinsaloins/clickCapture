@@ -25,7 +25,6 @@ const SCREENSHOT_DELAY_MS = 500;
 async function captureAndSaveScreenshot() {
   console.log(`Waiting ${SCREENSHOT_DELAY_MS}ms before capturing...`);
   
-  // 指定時間待機
   await new Promise(resolve => setTimeout(resolve, SCREENSHOT_DELAY_MS));
 
   try {
@@ -41,8 +40,9 @@ async function captureAndSaveScreenshot() {
     const fileName = await generateFileName(tab);
     console.log('Generated filename:', fileName);
     
-    const dataUrl = await chrome.tabs.captureVisibleTab();
-    console.log('Screenshot captured (Data URL length:', dataUrl.length, ')');
+    // formatを'png'に指定
+    const dataUrl = await chrome.tabs.captureVisibleTab({ format: "png" }); 
+    console.log('Screenshot captured as PNG (Data URL length:', dataUrl.length, ')');
     
     await chrome.downloads.download({
       url: dataUrl,
