@@ -3,18 +3,28 @@ console.log("Content script loaded for:", window.location.href);
 // スクリーンショット要求を送信する関数
 async function requestScreenshot() {
   try {
-    const result = await chrome.storage.local.get('isEnabled');
-    if (result.isEnabled) {
-      console.log('Sending screenshot request...');
+    // グローバル設定と許可リストを読み込み
+    const settings = await chrome.storage.local.get(['isGloballyEnabled', 'allowedSites']);
+    const isGloballyEnabled = settings.isGloballyEnabled || false;
+    const allowedSites = settings.allowedSites || [];
+    const currentHostname = window.location.hostname;
+
+    // グローバルで有効 かつ 現在のサイトが許可リストに含まれているか確認
+    if (isGloballyEnabled && allowedSites.includes(currentHostname)) {
+      console.log('Sending screenshot request (Globally enabled and site allowed)...');
       chrome.runtime.sendMessage({ type: 'takeScreenshot' }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('Error sending message:', chrome.runtime.lastError);
         } else {
-          console.log('Screenshot request sent successfully');
+          // console.log('Screenshot request sent successfully'); // 成功ログは冗長なのでコメントアウト
         }
       });
     } else {
-      console.log('Extension is disabled, not sending request.');
+      if (!isGloballyEnabled) {
+          console.log('Extension is globally disabled, not sending request.');
+      } else {
+          console.log('Current site is not in the allowed list, not sending request.');
+      }
     }
   } catch (error) {
     console.error('Error requesting screenshot:', error);
