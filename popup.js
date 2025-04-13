@@ -3,7 +3,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const globalStatus = document.getElementById('globalStatus');
 
   // Load global setting
-  const { isGloballyEnabled = false } = await chrome.storage.local.get('isGloballyEnabled');
+  const { isGloballyEnabled = false } =
+    await chrome.storage.local.get('isGloballyEnabled');
   globalToggle.checked = isGloballyEnabled;
   globalStatus.textContent = isGloballyEnabled ? '有効' : '無効';
 
@@ -15,12 +16,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('Global toggle changed:', enabled);
     // Reload current tab to reflect changes (optional, but good UX)
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       if (tab && tab.id) {
         chrome.tabs.reload(tab.id);
       }
     } catch (error) {
-      console.error("Error reloading tab:", error);
+      console.error('Error reloading tab:', error);
     }
   });
-}); 
+});
